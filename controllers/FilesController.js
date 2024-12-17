@@ -1,4 +1,3 @@
-import { error } from 'console';
 import mime from 'mime-types';
 import { ObjectId } from 'mongodb';
 import fs from 'fs';
