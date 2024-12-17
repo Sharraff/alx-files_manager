@@ -211,4 +211,41 @@ class FilesController {
 
         return res.status(200).json(fileDocument);
     }
+
+    static async getFile(req, res) {
+        const token = req.header('X-Token');
+        let { size } = req.params;
+        const userId = await redisClient.get(`auth_${token}`);
+        const id = new ObjectId(userId);
+        const user = await dbClient.users.findOne({ _id: id });
+
+        if (!user) {
+            res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const fieldId = req.params.id;
+        const file = await dbClient.files.findOne({ _id: new Object(fieldId), userId: user._id });
+
+        if (!file) return res.status(404).json({ error: 'Not found' });
+        if (!file.isPublic && (!req.user || String(file.userId) !== file.userId)) return res.status(404).json({ error: 'Not found' });
+        if (!file.type === 'folder') return res.status(400).json({ error: 'A folder doesn\'t have content' }).end();
+
+        let filePath = file.localPath;
+
+        if (size) {
+            filePath = `${file.localPath}_${size}`;
+        }
+
+        if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
+
+        const mimeType = mime.lookup(file.name);
+        const content = fs.createReadStream(file.localPath).pipe(res);
+
+        const header = { 'Content-type': mimeType }
+
+        res.set(header).status(200).send(content);
+
+    }
 }
+
+export default FilesController;
